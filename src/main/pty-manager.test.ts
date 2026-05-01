@@ -80,7 +80,7 @@ describe('spawnPty', () => {
     if (isWin) {
       expect(mockSpawn).toHaveBeenCalledWith(
         'cmd.exe',
-        ['/c', 'claude'],
+        '/d /c "claude"',
         expect.objectContaining({
           cwd: '/project',
           name: 'xterm-256color',
@@ -111,7 +111,7 @@ describe('spawnPty', () => {
     if (isWin) {
       expect(mockSpawn).toHaveBeenCalledWith(
         'cmd.exe',
-        ['/c', 'claude', '-r', 'claude-123'],
+        '/d /c "claude -r claude-123"',
         expect.any(Object),
       );
     } else {
@@ -132,7 +132,7 @@ describe('spawnPty', () => {
     if (isWin) {
       expect(mockSpawn).toHaveBeenCalledWith(
         'cmd.exe',
-        ['/c', 'claude', '--session-id', 'claude-123'],
+        '/d /c "claude --session-id claude-123"',
         expect.any(Object),
       );
     } else {
@@ -154,7 +154,7 @@ describe('spawnPty', () => {
     if (isWin) {
       expect(mockSpawn).toHaveBeenCalledWith(
         'cmd.exe',
-        ['/c', 'claude', '--verbose', '--debug'],
+        '/d /c "claude --verbose --debug"',
         expect.any(Object),
       );
     } else {
@@ -207,10 +207,10 @@ describe('spawnPty', () => {
     freshSpawnPty('s1', '/project', null, false, '', 'claude', undefined, undefined, vi.fn(), vi.fn());
 
     if (isWin) {
-      // On Windows, .cmd files are wrapped with cmd.exe /c
+      // On Windows, .cmd files are wrapped with cmd.exe /d /c as a pre-built string
       expect(mockSpawn).toHaveBeenCalledWith(
         'cmd.exe',
-        ['/c', expectedPath],
+        `/d /c "${expectedPath}"`,
         expect.any(Object),
       );
     } else {
@@ -616,19 +616,35 @@ describe('getFullPath (macOS)', () => {
 
 describe('resolveWindowsShell', () => {
   if (isWin) {
-    it('wraps .cmd files with cmd.exe /c', () => {
+    it('wraps .cmd files using pre-built string with /d /c', () => {
       const result = resolveWindowsShell('C:\\Users\\test\\npm\\claude.cmd', ['--help']);
       expect(result).toEqual({
         shell: 'cmd.exe',
-        args: ['/c', 'C:\\Users\\test\\npm\\claude.cmd', '--help'],
+        args: '/d /c "C:\\Users\\test\\npm\\claude.cmd --help"',
       });
     });
 
-    it('wraps .bat files with cmd.exe /c', () => {
+    it('double-outer-quotes path when it contains spaces', () => {
+      const result = resolveWindowsShell('C:\\Program Files\\nodejs\\claude.cmd', ['--help']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: '/d /c ""C:\\Program Files\\nodejs\\claude.cmd" --help"',
+      });
+    });
+
+    it('quotes args with spaces in the inner command', () => {
+      const result = resolveWindowsShell('C:\\Program Files\\nodejs\\claude.cmd', ['-i', 'my prompt text']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: '/d /c ""C:\\Program Files\\nodejs\\claude.cmd" -i "my prompt text""',
+      });
+    });
+
+    it('wraps .bat files using pre-built string with /d /c', () => {
       const result = resolveWindowsShell('C:\\tools\\run.bat', ['-v']);
       expect(result).toEqual({
         shell: 'cmd.exe',
-        args: ['/c', 'C:\\tools\\run.bat', '-v'],
+        args: '/d /c "C:\\tools\\run.bat -v"',
       });
     });
 
@@ -648,19 +664,19 @@ describe('resolveWindowsShell', () => {
       });
     });
 
-    it('wraps bare binary names with cmd.exe /c', () => {
+    it('wraps bare binary names with cmd.exe /d /c', () => {
       const result = resolveWindowsShell('claude', ['--help']);
       expect(result).toEqual({
         shell: 'cmd.exe',
-        args: ['/c', 'claude', '--help'],
+        args: '/d /c "claude --help"',
       });
     });
 
-    it('wraps absolute extensionless paths with cmd.exe /c', () => {
+    it('wraps absolute extensionless paths with cmd.exe /d /c and quotes path with spaces', () => {
       const result = resolveWindowsShell('C:\\tools\\claude', ['--help']);
       expect(result).toEqual({
         shell: 'cmd.exe',
-        args: ['/c', 'C:\\tools\\claude', '--help'],
+        args: '/d /c "C:\\tools\\claude --help"',
       });
     });
   } else {

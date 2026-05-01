@@ -135,11 +135,17 @@ export function getFullPath(): string {
 /**
  * On Windows, .cmd/.bat and .ps1 files cannot be spawned directly by node-pty
  * (CreateProcess returns error 193). Wrap them via cmd.exe or powershell.exe.
+ *
+ * For cmd.exe cases we pass a pre-built string (not an array) so node-pty's
+ * argsToCommandLine appends it verbatim without re-escaping quotes. The inner
+ * command is double-outer-quoted so cmd.exe /d /c strips the outermost pair and
+ * runs the inner-quoted path correctly even when it contains spaces:
+ *   cmd.exe /d /c ""C:\path with spaces\tool.cmd" arg1 "arg with spaces""
  */
 export function resolveWindowsShell(
   shell: string,
   args: string[]
-): { shell: string; args: string[] } {
+): { shell: string; args: string[] | string } {
   if (!isWin) return { shell, args };
   const ext = path.extname(shell).toLowerCase();
   // .exe files can be spawned directly by CreateProcess
@@ -152,8 +158,11 @@ export function resolveWindowsShell(
     };
   }
   // Everything else (.cmd, .bat, bare names, extensionless paths):
-  // wrap with cmd.exe so CreateProcess doesn't choke on non-PE binaries.
-  return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
+  // build a pre-escaped string so node-pty does not re-escape our quotes.
+  const quotedShell = shell.includes(' ') ? `"${shell}"` : shell;
+  const quotedArgs = args.map(a => (a.includes(' ') ? `"${a}"` : a));
+  const innerCmd = [quotedShell, ...quotedArgs].join(' ');
+  return { shell: 'cmd.exe', args: `/d /c "${innerCmd}"` };
 }
 
 export async function spawnPty(

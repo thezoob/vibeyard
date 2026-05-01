@@ -45,9 +45,14 @@ function whichBinary(binaryName: string, envPath: string): string | null {
       encoding: 'utf-8',
       timeout: 3000,
     }).trim();
-    // 'where' on Windows may return multiple lines — take the first
-    const firstLine = resolved.split(/\r?\n/)[0];
-    return firstLine || null;
+    // 'where' on Windows may return multiple lines (e.g. extensionless + .cmd).
+    // Prefer lines with a recognised extension so cmd.exe can run them directly.
+    const lines = resolved.split(/\r?\n/).filter(Boolean);
+    if (isWin && lines.length > 1) {
+      const preferred = lines.find(l => /\.(cmd|exe|ps1)$/i.test(l));
+      return preferred || lines[0];
+    }
+    return lines[0] || null;
   } catch {
     return null;
   }

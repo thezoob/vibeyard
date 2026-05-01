@@ -115,6 +115,20 @@ describe('resolveBinary (Windows)', () => {
     expect(result).toBe(customPath);
   });
 
+  it('prefers .cmd over extensionless when where returns multiple lines', () => {
+    mockExecSync.mockImplementation((cmd: string) => {
+      if (typeof cmd === 'string' && cmd.includes('where')) {
+        return 'C:\\Program Files\\nodejs\\claude\nC:\\Program Files\\nodejs\\claude.cmd\n';
+      }
+      throw new Error('not found');
+    });
+
+    const cache = { path: null as string | null };
+    const result = resolveBinary('claude', cache);
+
+    expect(result).toBe('C:\\Program Files\\nodejs\\claude.cmd');
+  });
+
   it('returns bare binary name when all methods fail', () => {
     const cache = { path: null as string | null };
     const result = resolveBinary('claude', cache);
