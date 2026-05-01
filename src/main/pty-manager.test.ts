@@ -640,6 +640,22 @@ describe('resolveWindowsShell', () => {
       });
     });
 
+    it('replaces newlines in args with spaces so cmd.exe does not truncate', () => {
+      const result = resolveWindowsShell('C:\\npm\\copilot.cmd', ['-i', '## Feature Request\n\nI want to check why prompts are cut off']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: '/d /c "C:\\npm\\copilot.cmd -i "## Feature Request  I want to check why prompts are cut off""',
+      });
+    });
+
+    it('escapes double-quotes in args as "" for cmd.exe', () => {
+      const result = resolveWindowsShell('C:\\npm\\copilot.cmd', ['-i', 'Say "hello" world']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: '/d /c "C:\\npm\\copilot.cmd -i "Say ""hello"" world""',
+      });
+    });
+
     it('wraps .bat files using pre-built string with /d /c', () => {
       const result = resolveWindowsShell('C:\\tools\\run.bat', ['-v']);
       expect(result).toEqual({

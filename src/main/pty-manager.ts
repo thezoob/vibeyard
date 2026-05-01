@@ -159,8 +159,18 @@ export function resolveWindowsShell(
   }
   // Everything else (.cmd, .bat, bare names, extensionless paths):
   // build a pre-escaped string so node-pty does not re-escape our quotes.
+  //
+  // cmd.exe is line-based, so newlines in arguments (e.g. multi-line Kanban
+  // prompts) terminate the command at the first newline and silently truncate
+  // the rest. Replace newlines with spaces so the full prompt is preserved.
+  // Double-quotes inside args must be doubled ("") to survive the outer
+  // /d /c "..." quoting layer.
+  const sanitizeForCmd = (a: string) => a.replace(/\r?\n|\r/g, ' ').replace(/"/g, '""');
   const quotedShell = shell.includes(' ') ? `"${shell}"` : shell;
-  const quotedArgs = args.map(a => (a.includes(' ') ? `"${a}"` : a));
+  const quotedArgs = args.map(a => {
+    const s = sanitizeForCmd(a);
+    return (s.includes(' ') || s !== a) ? `"${s}"` : s;
+  });
   const innerCmd = [quotedShell, ...quotedArgs].join(' ');
   return { shell: 'cmd.exe', args: `/d /c "${innerCmd}"` };
 }
